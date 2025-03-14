@@ -2,10 +2,15 @@ require_relative "../lib/json"
 
 RSpec.describe "JSON.parse" do
   include JSON
+  let(:json) { "{ 'key': 'value' }" }
 
   context "parses" do
     it "a simple JSON object {}" do
       expect(JSON.parse("{}")).to eq({})
+    end
+
+    it "a string key-value pair" do
+      expect(JSON.parse(json)).to eq(false) 
     end
   end
 

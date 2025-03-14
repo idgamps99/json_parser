@@ -8,9 +8,9 @@ module JSON
   RIGHT_BRACE   = "RIGHT_BRACE"
   # LEFT_BRACKET  = "LEFT_BRACKET"
   # RIGHT_BRACKET = "RIGHT_BRACKET"
-  # COLON         = "COLON"
-  # COMMA         = "COMMA"
-  # STRING        = "STRING"
+  COLON         = "COLON"
+  COMMA         = "COMMA"
+  STRING        = "STRING"
   # NUMBER        = "NUMBER"
   # TRUE          = "TRUE"
   # FALSE         = "FALSE"
@@ -18,16 +18,21 @@ module JSON
 
   class << self
     def parse(json)
-      tokens = tokenise(json)
+      tokens = tokenise(json).compact
+      tokens.each { |token| p token }
       verify_braces(tokens)
       analyse_syntax(tokens, {}, 1)
     end
 
     def tokenise(json)
-      json.each_char.map do |char|
+      json.split(/[\s']/).map do |char|
         case char
+        when " " then next
         when "{" then { token_type: LEFT_BRACE, value: char }
         when "}" then { token_type: RIGHT_BRACE, value: char }
+        when /[a-zA-Z]/ then{ token_type: STRING, value: char }
+        when ":" then { token_type: COLON, value: char }
+        when "," then { token_type: COMMA, value: char }
         end
       end
     end
@@ -54,4 +59,6 @@ module JSON
   end
 end
 
-String.madeupmethod
+test = "{ 'key': 'value', 'another_key': 'another_value' }"
+
+JSON.parse(test)
