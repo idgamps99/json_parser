@@ -10,7 +10,21 @@ RSpec.describe "JSON.parse" do
     end
 
     it "a string key-value pair" do
-      expect(JSON.parse(json)).to eq(false) 
+      expect(JSON.parse(json)).to eq({ 'key' => 'value' })
+    end
+
+    xit "multiple string key-value pairs" do
+      multiple_pairs = "{
+          'key': 'value',
+          'another_key': 'another_value',
+          'final key': 'final value'
+        }"
+      expected = {
+        'key' => 'value',
+        'another_key' => 'another_value',
+        'final key' => 'final value'
+      }
+      expect(JSON.parse(multiple_pairs)).to eq(expected)
     end
   end
 
