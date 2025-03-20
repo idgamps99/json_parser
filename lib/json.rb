@@ -19,22 +19,44 @@ module JSON
 
   ParseError = Class.new(StandardError)
 
-  class << self
-    def parse(json)
-      tokens = tokenise(json)
-      analyse_syntax(tokens)
+  class TreeNode
+    attr_reader :key, :value
+
+    def initialize(key: nil, value: none)
+      @key = key
+      @value = value
     end
 
-    def tokenise(json)
+    def self.root(root)
+      @@root = root
+    end
+  end
+
+  class << self
+    def parse(json)
+      unless json.is_a?(String)
+        if json.respond_to?(:to_s)
+          json.to_s
+        else
+          error(expected: "JSON string", unexpected: json.class)
+        end
+      end
+      @nodes = []
+      @tokens = create_tokens(json)
+      analyse_syntax
+      build_json
+    end
+
+    def create_tokens(json)
       json = StringScanner.new(json)
       tokens = []
-      while !json.eos?
+      until json.eos?
         if pattern = json.scan(/{/)
-          tokens <<  token(LEFT_BRACE, pattern)
+          tokens << token(LEFT_BRACE, pattern)
         elsif pattern = json.scan(/}/)
-          tokens <<  token(RIGHT_BRACE, pattern)
+          tokens << token(RIGHT_BRACE, pattern)
         elsif pattern = json.scan(/'[a-zA-Z_', ]+'/) # any non numerical string including spaces and some punctuation
-          tokens <<  token(STRING, pattern)
+          tokens << token(STRING, pattern.gsub(/'/, ""))
         elsif pattern = json.scan(/:/)
           tokens << token(COLON, pattern)
         elsif pattern = json.scan(/,/)
@@ -50,43 +72,63 @@ module JSON
       { token_type: type, value: pattern }
     end
 
-    def analyse_syntax(tokens)
-      check_open_close_braces(tokens)
-      tokens.pop
-      tokens.shift
+    def analyse_syntax
+      index = 0
+      if @tokens[0][:token_type] != LEFT_BRACE
+        error(expected: "{", unexpected: @tokens[0][:value])
+      elsif @tokens[-1][:token_type] != RIGHT_BRACE
+        error(expected: "}", unexpected: @tokens[-1][:value])
+      end
 
-      hash = {}
-      return hash if tokens.empty?
-      previous = LEFT_BRACE
+      while index < @tokens.length
+        @current = @tokens[index]
+        @previous = @tokens[index - 1] unless @current[:token_type] == LEFT_BRACE
+        @next = @tokens[index + 1]
 
-      tokens.each_with_index do |token, index|
-        if valid_next_token?(token[:token_type], previous, tokens[index + 1])
-          previous = token[:token_type]
-          puts "FUCK YEAH #{token[:token_type]}"
+
+        case @current[:token_type]
+        when LEFT_BRACE
+          unless @next[:token_type] == STRING || @next[:token_type] == RIGHT_BRACE
+            error(expected: STRING, unexpected: @next[:value])
+          end
+          index += 1
+        when STRING
+          unless @next[:token_type] == COLON || @next[:token_type] == COMMA || @next[:token_type] == RIGHT_BRACE
+            error(expected: ": or , or }", unexpected: @next[:token_type])
+          end
+          index += 1
+        when COLON
+          @nodes << TreeNode.new(key: @previous[:value], value: @next[:value]) if check_adjacent?
+          index += 1
+        when COMMA
+          check_adjacent?
+          index += 1
+        when RIGHT_BRACE
+          index += 1
         else
-          puts token[:token_type]
+          error(expected: "unknown", unexpected: @current[:value])
         end
       end
     end
 
-    def valid_next_token?(token_type, previous, follow)
-      case previous
-      when "LEFT_BRACE"
-        token_type == STRING
+    def build_json
+      json = {}
+      @nodes.each do |node|
+        json[node.key] = node.value
       end
+      json
     end
 
-    def check_open_close_braces(tokens)
-      unless tokens[0][:token_type] == LEFT_BRACE
-        error(expected: "{", unexpected: tokens[0][:value])
+    def check_adjacent?
+      if @previous[:token_type] != STRING
+        error(expected: STRING, unexpected: @previous[:value])
+      elsif @next[:token_type] != STRING
+        error(expected: STRING, unexpected: @next[:value])
       end
-
-      unless tokens[-1][:token_type] == RIGHT_BRACE
-        error(expected: "}", unexpected: tokens[-1][:value])
-      end
+      true
     end
 
-    def error(expected: ____, unexpected: ____)
+    def error(expected: nil, unexpected: nil)
       raise ParseError, "unexpected token, expected '#{expected}', got '#{unexpected}'"
     end
   end

@@ -13,7 +13,7 @@ RSpec.describe "JSON.parse" do
       expect(JSON.parse(json)).to eq({ 'key' => 'value' })
     end
 
-    xit "multiple string key-value pairs" do
+    it "multiple string key-value pairs" do
       multiple_pairs = "{
           'key': 'value',
           'another_key': 'another_value',
@@ -35,6 +35,22 @@ RSpec.describe "JSON.parse" do
 
     it "object not closed with curley brace" do
       expect{ JSON.parse("{") }.to raise_error(JSON::ParseError)
+    end
+
+    it "object with key-value pairs not closed with }" do
+      multiple_pairs = "{
+          'key': 'value',
+          'another_key': 'another_value',
+          'final key': 'final value'"
+        expect{ JSON.parse(multiple_pairs) }.to raise_error(JSON::ParseError, "unexpected token, expected '}', got 'final value'")
+    end
+
+    it "object with a dangling comma" do
+      multiple_pairs = "{
+          'key': 'value',
+          'another_key': 'another_value',
+          'final key': 'final value',"
+        expect{ JSON.parse(multiple_pairs) }.to raise_error(JSON::ParseError)
     end
   end
 end
